@@ -20,6 +20,8 @@ import time
 from tqdm import tqdm
 import os
 
+import pdb
+
 def Identity(x):
     return x
 
@@ -118,7 +120,7 @@ class KGReasoning(nn.Module):
     def __init__(self, nentity, nrelation, hidden_dim, gamma, 
                  geo, test_batch_size=1,
                  box_mode=None, use_cuda=False,
-                 query_name_dict=None, beta_mode=None):
+                 query_name_dict=None, beta_mode=None, word_embedding = None):
         super(KGReasoning, self).__init__()
         self.nentity = nentity
         self.nrelation = nrelation
@@ -128,6 +130,14 @@ class KGReasoning(nn.Module):
         self.use_cuda = use_cuda
         self.batch_entity_range = torch.arange(nentity).to(torch.float).repeat(test_batch_size, 1).cuda() if self.use_cuda else torch.arange(nentity).to(torch.float).repeat(test_batch_size, 1) # used in test_step
         self.query_name_dict = query_name_dict
+        # TODO linear layer for dimension convert
+        self.word_embedding = word_embedding
+        self.word_embed_dim = word_embedding.shape[-1]
+        self.convert = nn.Sequential(
+            nn.Linear(self.hidden_dim + self.word_embed_dim, self.hidden_dim),
+            nn.ReLU(),
+            nn.Linear(self.hidden_dim, self.hidden_dim)
+        )
 
         self.gamma = nn.Parameter(
             torch.Tensor([gamma]), 
@@ -231,6 +241,7 @@ class KGReasoning(nn.Module):
         else:
             embedding_list = []
             offset_embedding_list = []
+            # embedding the query
             for i in range(len(query_structure)):
                 embedding, offset_embedding, idx = self.embed_query_box(queries, query_structure[i], idx)
                 embedding_list.append(embedding)
@@ -246,13 +257,20 @@ class KGReasoning(nn.Module):
         queries: a flattened batch of queries
         '''
         all_relation_flag = True
-        for ele in query_structure[-1]: # whether the current query tree has merged to one branch and only need to do relation traversal, e.g., path queries or conjunctive queries after the intersection
+        # whether the current query tree has merged to one branch and only need to do relation traversal, e.g., path queries or conjunctive queries after the intersection
+        for ele in query_structure[-1]:
             if ele not in ['r', 'n']:
                 all_relation_flag = False
                 break
         if all_relation_flag:
             if query_structure[0] == 'e':
+                # TODO concat word embedding
                 embedding = torch.index_select(self.entity_embedding, dim=0, index=queries[:, idx])
+                embedding_word = torch.index_select(self.word_embedding, dim=0, index=queries[:, idx])
+                # pdb.set_trace()
+                new_embedding = torch.cat((embedding, embedding_word), -1)
+                embedding = self.convert(new_embedding)
+                # pdb.set_trace()
                 idx += 1
             else:
                 embedding, idx = self.embed_query_vec(queries, query_structure[0], idx)
@@ -261,6 +279,7 @@ class KGReasoning(nn.Module):
                     assert False, "vec cannot handle queries with negation"
                 else:
                     r_embedding = torch.index_select(self.relation_embedding, dim=0, index=queries[:, idx])
+
                     embedding += r_embedding
                 idx += 1
         else:
@@ -269,6 +288,7 @@ class KGReasoning(nn.Module):
                 embedding, idx = self.embed_query_vec(queries, query_structure[i], idx)
                 embedding_list.append(embedding)
             embedding = self.center_net(torch.stack(embedding_list))
+
 
         return embedding, idx
 
