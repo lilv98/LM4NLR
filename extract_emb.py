@@ -42,9 +42,8 @@ def main():
     target_list = []
     for target in tqdm(source_list):
         emb_each = list_to_embedding(model, tokenizer, target).detach().cpu().numpy().tolist()
-        target_list.append(emb_each)
+        target_list.append(emb_each[0])
     
-    # print(target_list.shape, type(target_list))
     pickle.dump(target_list, output)
 
 
