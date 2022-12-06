@@ -5,19 +5,11 @@ import numpy as np
 import pdb
 
 def pca(addr):
-
     embed_list = pickle.load(open(addr, "rb"))
-    embeds = np.array(embed_list).squeeze(axis=1)
-    print(len(embeds), len(embeds[0]))
-
-    # embed_list = torch.tensor(embed_list)
-    # embed_list = torch.squeeze(embed_list, 1)
-    # pickle.dump(embed_list.tolist(), open("embeds/embeds768.pkl", "wb"))
-
     for target in [128, 256, 512]:
-
+        print(f'Compressing to {target} dimension.')
         pca = PCA(n_components=target)
-        embeds_new = pca.fit_transform(embeds)
+        embeds_new = pca.fit_transform(embed_list)
         pickle.dump(embeds_new.tolist(), open("./private_data/emb" + str(target) + ".pkl", "wb"))
 
 

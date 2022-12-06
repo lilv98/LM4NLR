@@ -3,11 +3,11 @@ Language Modeling for Neural Multi-hop Logical Reasoning over Knowledge Graphs
 
 
 ## Requirements
-    * python == 3.8.5
-    * torch == 1.8.1
-    * numpy == 1.19.2
-    * pandas == 1.0.1
-    * tqdm == 4.61.0
+    python == 3.8.5
+    torch == 1.8.1
+    numpy == 1.19.2
+    pandas == 1.0.1
+    tqdm == 4.61.0
 
 
 ## Preprocessing
