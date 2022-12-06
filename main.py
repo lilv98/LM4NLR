@@ -37,8 +37,13 @@ query_name_dict = {('e',('r',)): '1p',
                     (('e', ('r',)), ('e', ('r',)), ('u',)): '2u-DNF',
                     ((('e', ('r',)), ('e', ('r',)), ('u',)), ('r',)): 'up-DNF',
                     ((('e', ('r', 'n')), ('e', ('r', 'n'))), ('n',)): '2u-DM',
-                    ((('e', ('r', 'n')), ('e', ('r', 'n'))), ('n', 'r')): 'up-DM'
+                    ((('e', ('r', 'n')), ('e', ('r', 'n'))), ('n', 'r')): 'up-DM',
+                    ('e', ('r', 'r', 'r', 'r')): '4p',
+                    ('e', ('r', 'r', 'r', 'r', 'r')): '5p',
+                    (('e', ('r',)), ('e', ('r',)), ('e', ('r',)), ('e', ('r',))): '4i',
+                    (('e', ('r',)), ('e', ('r',)), ('e', ('r',)), ('e', ('r',)), ('e', ('r',))): '5i',
                 }
+
 name_query_dict = {value: key for key, value in query_name_dict.items()}
 all_tasks = list(name_query_dict.keys()) # ['1p', '2p', '3p', '2i', '3i', 'ip', 'pi', '2in', '3in', 'inp', 'pin', 'pni', '2u-DNF', '2u-DM', 'up-DNF', 'up-DM']
 
@@ -77,7 +82,7 @@ def parse_args(args=None):
     parser.add_argument('--geo', default='vec', type=str, choices=['vec', 'box', 'beta'], help='the reasoning model, vec for GQE, box for Query2box, beta for BetaE')
     parser.add_argument('--print_on_screen', action='store_true')
     
-    parser.add_argument('--tasks', default='1p.2p.3p.2i.3i.ip.pi.2in.3in.inp.pin.pni.2u.up', type=str, help="tasks connected by dot, refer to the BetaE paper for detailed meaning and structure of each task")
+    parser.add_argument('--tasks', default='1p.2p.3p.2i.3i.ip.pi.2in.3in.inp.pin.pni.2u.up.4p.5p.4i.5i', type=str, help="tasks connected by dot, refer to the BetaE paper for detailed meaning and structure of each task")
     parser.add_argument('--seed', default=0, type=int, help="random seed")
     parser.add_argument('-betam', '--beta_mode', default="(1600,2)", type=str, help='(hidden_dim,num_layer) for BetaE relational projection')
     parser.add_argument('-boxm', '--box_mode', default="(none,0.02)", type=str, help='(offset activation,center_reg) for Query2box, center_reg balances the in_box dist and out_box dist')
@@ -256,7 +261,7 @@ def main(args):
             logging.info(query_name_dict[query_structure]+": "+str(len(train_queries[query_structure])))
         train_path_queries = defaultdict(set)
         train_other_queries = defaultdict(set)
-        path_list = ['1p', '2p', '3p']
+        path_list = ['1p', '2p', '3p', '4p', '5p']
         for query_structure in train_queries:
             if query_name_dict[query_structure] in path_list:
                 train_path_queries[query_structure] = train_queries[query_structure]
