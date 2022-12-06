@@ -1,9 +1,8 @@
 /.idea/
-/data/
-/embeds/
 **/.DS_Store
 
-/private_data
+/private_data/*.pkl
+/private_data/*.txt
 /logs
 *.log
 

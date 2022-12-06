@@ -21,24 +21,33 @@ from models import KGReasoning
 from util import flatten_query, parse_time, set_global_seed, eval_tuple
 
 import pdb
+import time
+import pickle
+from collections import defaultdict
+from tqdm import tqdm
+from util import flatten_query, list2tuple, parse_time, set_global_seed, eval_tuple
 
-query_name_dict = {('e', ('r',)): '1p',
-                   ('e', ('r', 'r')): '2p',
-                   ('e', ('r', 'r', 'r')): '3p',
-                   (('e', ('r',)), ('e', ('r',))): '2i',
-                   (('e', ('r',)), ('e', ('r',)), ('e', ('r',))): '3i',
-                   ((('e', ('r',)), ('e', ('r',))), ('r',)): 'ip',
-                   (('e', ('r', 'r')), ('e', ('r',))): 'pi',
-                   (('e', ('r',)), ('e', ('r', 'n'))): '2in',
-                   (('e', ('r',)), ('e', ('r',)), ('e', ('r', 'n'))): '3in',
-                   ((('e', ('r',)), ('e', ('r', 'n'))), ('r',)): 'inp',
-                   (('e', ('r', 'r')), ('e', ('r', 'n'))): 'pin',
-                   (('e', ('r', 'r', 'n')), ('e', ('r',))): 'pni',
-                   (('e', ('r',)), ('e', ('r',)), ('u',)): '2u-DNF',
-                   ((('e', ('r',)), ('e', ('r',)), ('u',)), ('r',)): 'up-DNF',
-                   ((('e', ('r', 'n')), ('e', ('r', 'n'))), ('n',)): '2u-DM',
-                   ((('e', ('r', 'n')), ('e', ('r', 'n'))), ('n', 'r')): 'up-DM'
-                   }
+query_name_dict = {('e',('r',)): '1p', 
+                    ('e', ('r', 'r')): '2p',
+                    ('e', ('r', 'r', 'r')): '3p',
+                    (('e', ('r',)), ('e', ('r',))): '2i',
+                    (('e', ('r',)), ('e', ('r',)), ('e', ('r',))): '3i',
+                    ((('e', ('r',)), ('e', ('r',))), ('r',)): 'ip',
+                    (('e', ('r', 'r')), ('e', ('r',))): 'pi',
+                    (('e', ('r',)), ('e', ('r', 'n'))): '2in',
+                    (('e', ('r',)), ('e', ('r',)), ('e', ('r', 'n'))): '3in',
+                    ((('e', ('r',)), ('e', ('r', 'n'))), ('r',)): 'inp',
+                    (('e', ('r', 'r')), ('e', ('r', 'n'))): 'pin',
+                    (('e', ('r', 'r', 'n')), ('e', ('r',))): 'pni',
+                    (('e', ('r',)), ('e', ('r',)), ('u',)): '2u-DNF',
+                    ((('e', ('r',)), ('e', ('r',)), ('u',)), ('r',)): 'up-DNF',
+                    ((('e', ('r', 'n')), ('e', ('r', 'n'))), ('n',)): '2u-DM',
+                    ((('e', ('r', 'n')), ('e', ('r', 'n'))), ('n', 'r')): 'up-DM',
+                    ('e', ('r', 'r', 'r', 'r')): '4p',
+                    ('e', ('r', 'r', 'r', 'r', 'r')): '5p',
+                    (('e', ('r',)), ('e', ('r',)), ('e', ('r',)), ('e', ('r',))): '4i',
+                    (('e', ('r',)), ('e', ('r',)), ('e', ('r',)), ('e', ('r',)), ('e', ('r',))): '5i',
+                }
 name_query_dict = {value: key for key, value in query_name_dict.items()}
 all_tasks = list(
     name_query_dict.keys())  # ['1p', '2p', '3p', '2i', '3i', 'ip', 'pi', '2in', '3in', 'inp', 'pin', 'pni', '2u-DNF', '2u-DM', 'up-DNF', 'up-DM']
@@ -287,7 +296,7 @@ def main(args):
 
         train_path_queries = defaultdict(set)
         train_other_queries = defaultdict(set)
-        path_list = ['1p', '2p', '3p']
+        path_list = ['1p', '2p', '3p', '4p', '5p']
 
         # divide queries to path / other
         for query_structure in train_queries:

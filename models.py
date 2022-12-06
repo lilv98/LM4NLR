@@ -120,7 +120,7 @@ class KGReasoning(nn.Module):
     def __init__(self, nentity, nrelation, hidden_dim, gamma, 
                  geo, test_batch_size=1,
                  box_mode=None, use_cuda=False,
-                 query_name_dict=None, beta_mode=None, word_embedding = None):
+                 query_name_dict=None, beta_mode=None, word_embedding=None):
         super(KGReasoning, self).__init__()
         self.nentity = nentity
         self.nrelation = nrelation
