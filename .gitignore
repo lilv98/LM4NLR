@@ -1,7 +1,7 @@
 /.idea/
 /data/
-/embeds
-/.DS_Store
+/embeds/
+**/.DS_Store
 
 /private_data
 /logs
