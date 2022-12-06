@@ -10,7 +10,6 @@ def list_to_embedding(model, tokenizer, text_list):
     encoded_input = tokenizer(text_list, padding=True, return_tensors='pt').to('cuda:0')
     output = model(**encoded_input)
     embed_list = output.pooler_output
-
     return embed_list
 
 def main():
