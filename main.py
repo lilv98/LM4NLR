@@ -288,6 +288,7 @@ def main(args):
     logging.info('#relation: %d' % nrelation)
     logging.info('#max steps: %d' % args.max_steps)
     logging.info('Evaluate unoins using: %s' % args.evaluate_union)
+    logging.info('Using word_embeddings for entities: %s' % args.use_wb)
 
     train_queries, train_answers, valid_queries, valid_hard_answers, valid_easy_answers, \
     test_queries, test_hard_answers, test_easy_answers, word_embedding = load_data(args, tasks)

@@ -135,11 +135,20 @@ class KGReasoning(nn.Module):
         if use_wb:
             self.word_embedding = word_embedding
             self.word_embed_dim = word_embedding.shape[-1]
-            self.convert = nn.Sequential(
-                nn.Linear(self.hidden_dim + self.word_embed_dim, self.hidden_dim),
-                nn.ReLU(),
-                nn.Linear(self.hidden_dim, self.hidden_dim)
-            )
+            if self.geo == 'box':
+                pass
+            elif self.geo == 'vec':
+                self.convert = nn.Sequential(
+                    nn.Linear(self.hidden_dim + self.word_embed_dim, self.hidden_dim),
+                    nn.ReLU(),
+                    nn.Linear(self.hidden_dim, self.hidden_dim)
+                )
+            elif self.geo == 'beta':
+                self.convert = nn.Sequential(
+                    nn.Linear(self.hidden_dim * 2 + self.word_embed_dim, self.hidden_dim * 2),
+                    nn.ReLU(),
+                    nn.Linear(self.hidden_dim * 2, self.hidden_dim * 2)
+                )
 
         self.gamma = nn.Parameter(
             torch.Tensor([gamma]), 
@@ -209,7 +218,7 @@ class KGReasoning(nn.Module):
         elif self.geo == 'vec':
             return self.forward_vec(positive_sample, negative_sample, subsampling_weight, batch_queries_dict, batch_idxs_dict, self.use_wb)
         elif self.geo == 'beta':
-            return self.forward_beta(positive_sample, negative_sample, subsampling_weight, batch_queries_dict, batch_idxs_dict)
+            return self.forward_beta(positive_sample, negative_sample, subsampling_weight, batch_queries_dict, batch_idxs_dict, self.use_wb)
 
     def embed_query_box(self, queries, query_structure, idx):
         '''
@@ -253,7 +262,7 @@ class KGReasoning(nn.Module):
 
         return embedding, offset_embedding, idx
 
-    def embed_query_vec(self, queries, query_structure, idx, use_wb=False):
+    def embed_query_vec(self, queries, query_structure, idx, use_wb):
         '''
         Iterative embed a batch of queries with same structure using GQE
         queries: a flattened batch of queries
@@ -274,7 +283,7 @@ class KGReasoning(nn.Module):
                     embedding = self.convert(new_embedding)
                 idx += 1
             else:
-                embedding, idx = self.embed_query_vec(queries, query_structure[0], idx)
+                embedding, idx = self.embed_query_vec(queries, query_structure[0], idx, use_wb)
             for i in range(len(query_structure[-1])):
                 if query_structure[-1][i] == 'n':
                     assert False, "vec cannot handle queries with negation"
@@ -286,14 +295,14 @@ class KGReasoning(nn.Module):
         else:
             embedding_list = []
             for i in range(len(query_structure)):
-                embedding, idx = self.embed_query_vec(queries, query_structure[i], idx)
+                embedding, idx = self.embed_query_vec(queries, query_structure[i], idx, use_wb)
                 embedding_list.append(embedding)
             embedding = self.center_net(torch.stack(embedding_list))
 
 
         return embedding, idx
 
-    def embed_query_beta(self, queries, query_structure, idx):
+    def embed_query_beta(self, queries, query_structure, idx, use_wb):
         '''
         Iterative embed a batch of queries with same structure using BetaE
         queries: a flattened batch of queries
@@ -306,9 +315,16 @@ class KGReasoning(nn.Module):
         if all_relation_flag:
             if query_structure[0] == 'e':
                 embedding = self.entity_regularizer(torch.index_select(self.entity_embedding, dim=0, index=queries[:, idx]))
+                # pdb.set_trace()
+                # concat word embeddings
+                if use_wb:
+                    embedding_word = torch.index_select(self.word_embedding, dim=0, index=queries[:, idx])
+                    new_embedding = torch.cat((embedding, embedding_word), -1)
+                    # pdb.set_trace()
+                    embedding = self.convert(new_embedding)
                 idx += 1
             else:
-                alpha_embedding, beta_embedding, idx = self.embed_query_beta(queries, query_structure[0], idx)
+                alpha_embedding, beta_embedding, idx = self.embed_query_beta(queries, query_structure[0], idx, use_wb)
                 embedding = torch.cat([alpha_embedding, beta_embedding], dim=-1)
             for i in range(len(query_structure[-1])):
                 if query_structure[-1][i] == 'n':
@@ -323,7 +339,7 @@ class KGReasoning(nn.Module):
             alpha_embedding_list = []
             beta_embedding_list = []
             for i in range(len(query_structure)):
-                alpha_embedding, beta_embedding, idx = self.embed_query_beta(queries, query_structure[i], idx)
+                alpha_embedding, beta_embedding, idx = self.embed_query_beta(queries, query_structure[i], idx, use_wb)
                 alpha_embedding_list.append(alpha_embedding)
                 beta_embedding_list.append(beta_embedding)
             alpha_embedding, beta_embedding = self.center_net(torch.stack(alpha_embedding_list), torch.stack(beta_embedding_list))
@@ -336,7 +352,7 @@ class KGReasoning(nn.Module):
         logit = self.gamma - torch.norm(torch.distributions.kl.kl_divergence(entity_dist, query_dist), p=1, dim=-1)
         return logit
 
-    def forward_beta(self, positive_sample, negative_sample, subsampling_weight, batch_queries_dict, batch_idxs_dict):
+    def forward_beta(self, positive_sample, negative_sample, subsampling_weight, batch_queries_dict, batch_idxs_dict, use_wb):
         all_idxs, all_alpha_embeddings, all_beta_embeddings = [], [], []
         all_union_idxs, all_union_alpha_embeddings, all_union_beta_embeddings = [], [], []
         for query_structure in batch_queries_dict:
@@ -345,14 +361,14 @@ class KGReasoning(nn.Module):
                     self.embed_query_beta(self.transform_union_query(batch_queries_dict[query_structure], 
                                                                      query_structure), 
                                           self.transform_union_structure(query_structure), 
-                                          0)
+                                          0, use_wb)
                 all_union_idxs.extend(batch_idxs_dict[query_structure])
                 all_union_alpha_embeddings.append(alpha_embedding)
                 all_union_beta_embeddings.append(beta_embedding)
             else:
                 alpha_embedding, beta_embedding, _ = self.embed_query_beta(batch_queries_dict[query_structure], 
                                                                            query_structure, 
-                                                                           0)
+                                                                           0, use_wb)
                 all_idxs.extend(batch_idxs_dict[query_structure])
                 all_alpha_embeddings.append(alpha_embedding)
                 all_beta_embeddings.append(beta_embedding)
