@@ -9,6 +9,8 @@ private_data.zip
 /logs
 *.log
 
+/mine.sh
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

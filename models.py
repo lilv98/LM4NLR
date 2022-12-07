@@ -120,7 +120,7 @@ class KGReasoning(nn.Module):
     def __init__(self, nentity, nrelation, hidden_dim, gamma, 
                  geo, test_batch_size=1,
                  box_mode=None, use_cuda=False,
-                 query_name_dict=None, beta_mode=None, word_embedding=None):
+                 query_name_dict=None, beta_mode=None, use_wb=False, word_embedding=None):
         super(KGReasoning, self).__init__()
         self.nentity = nentity
         self.nrelation = nrelation
@@ -130,14 +130,16 @@ class KGReasoning(nn.Module):
         self.use_cuda = use_cuda
         self.batch_entity_range = torch.arange(nentity).to(torch.float).repeat(test_batch_size, 1).cuda() if self.use_cuda else torch.arange(nentity).to(torch.float).repeat(test_batch_size, 1) # used in test_step
         self.query_name_dict = query_name_dict
-        # TODO linear layer for dimension convert
-        self.word_embedding = word_embedding
-        self.word_embed_dim = word_embedding.shape[-1]
-        self.convert = nn.Sequential(
-            nn.Linear(self.hidden_dim + self.word_embed_dim, self.hidden_dim),
-            nn.ReLU(),
-            nn.Linear(self.hidden_dim, self.hidden_dim)
-        )
+        self.use_wb=use_wb
+        # linear layer for dimension convert
+        if use_wb:
+            self.word_embedding = word_embedding
+            self.word_embed_dim = word_embedding.shape[-1]
+            self.convert = nn.Sequential(
+                nn.Linear(self.hidden_dim + self.word_embed_dim, self.hidden_dim),
+                nn.ReLU(),
+                nn.Linear(self.hidden_dim, self.hidden_dim)
+            )
 
         self.gamma = nn.Parameter(
             torch.Tensor([gamma]), 
@@ -205,7 +207,7 @@ class KGReasoning(nn.Module):
         if self.geo == 'box':
             return self.forward_box(positive_sample, negative_sample, subsampling_weight, batch_queries_dict, batch_idxs_dict)
         elif self.geo == 'vec':
-            return self.forward_vec(positive_sample, negative_sample, subsampling_weight, batch_queries_dict, batch_idxs_dict)
+            return self.forward_vec(positive_sample, negative_sample, subsampling_weight, batch_queries_dict, batch_idxs_dict, self.use_wb)
         elif self.geo == 'beta':
             return self.forward_beta(positive_sample, negative_sample, subsampling_weight, batch_queries_dict, batch_idxs_dict)
 
@@ -251,7 +253,7 @@ class KGReasoning(nn.Module):
 
         return embedding, offset_embedding, idx
 
-    def embed_query_vec(self, queries, query_structure, idx):
+    def embed_query_vec(self, queries, query_structure, idx, use_wb=False):
         '''
         Iterative embed a batch of queries with same structure using GQE
         queries: a flattened batch of queries
@@ -264,13 +266,12 @@ class KGReasoning(nn.Module):
                 break
         if all_relation_flag:
             if query_structure[0] == 'e':
-                # TODO concat word embedding
                 embedding = torch.index_select(self.entity_embedding, dim=0, index=queries[:, idx])
-                embedding_word = torch.index_select(self.word_embedding, dim=0, index=queries[:, idx])
-                # pdb.set_trace()
-                new_embedding = torch.cat((embedding, embedding_word), -1)
-                embedding = self.convert(new_embedding)
-                # pdb.set_trace()
+                # concat word embeddings
+                if use_wb:
+                    embedding_word = torch.index_select(self.word_embedding, dim=0, index=queries[:, idx])
+                    new_embedding = torch.cat((embedding, embedding_word), -1)
+                    embedding = self.convert(new_embedding)
                 idx += 1
             else:
                 embedding, idx = self.embed_query_vec(queries, query_structure[0], idx)
@@ -517,18 +518,18 @@ class KGReasoning(nn.Module):
         logit = self.gamma - torch.norm(distance, p=1, dim=-1)
         return logit
 
-    def forward_vec(self, positive_sample, negative_sample, subsampling_weight, batch_queries_dict, batch_idxs_dict):
+    def forward_vec(self, positive_sample, negative_sample, subsampling_weight, batch_queries_dict, batch_idxs_dict, use_wb=False):
         all_center_embeddings, all_idxs = [], []
         all_union_center_embeddings, all_union_idxs = [], []
         for query_structure in batch_queries_dict:
             if 'u' in self.query_name_dict[query_structure]:
                 center_embedding, _ = self.embed_query_vec(self.transform_union_query(batch_queries_dict[query_structure], 
                                                                     query_structure), 
-                                                                self.transform_union_structure(query_structure), 0)
+                                                                self.transform_union_structure(query_structure), 0, use_wb)
                 all_union_center_embeddings.append(center_embedding)
                 all_union_idxs.extend(batch_idxs_dict[query_structure])
             else:
-                center_embedding, _ = self.embed_query_vec(batch_queries_dict[query_structure], query_structure, 0)
+                center_embedding, _ = self.embed_query_vec(batch_queries_dict[query_structure], query_structure, 0, use_wb)
                 all_center_embeddings.append(center_embedding)
                 all_idxs.extend(batch_idxs_dict[query_structure])
 
