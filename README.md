@@ -9,6 +9,7 @@ Language Modeling for Neural Multi-hop Logical Reasoning over Knowledge Graphs
     pandas == 1.0.1
     tqdm == 4.61.0
     gdown == 3.3.1
+    tensorboardx == 2.5.1
 
 
 ## Preprocessing

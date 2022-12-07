@@ -1,6 +1,8 @@
 /.idea/
 **/.DS_Store
 
+*.err
+*.out
 private_data.zip
 /private_data/*.pkl
 /private_data/*.txt
