@@ -104,6 +104,8 @@ def parse_args(args=None):
     parser.add_argument('-evu', '--evaluate_union', default="DNF", type=str, choices=['DNF', 'DM'],
                         help='the way to evaluate union queries, transform it to disjunctive normal form (DNF) or use the De Morgan\'s laws (DM)')
     
+    # word_embeds
+    parser.add_argument('--use_wb', action='store_true', help='embedding the entities by NLP model')
     parser.add_argument('--word_embed_path', default=None, type=str, help='the path of word embeddings')
 
     return parser.parse_args(args)
@@ -202,11 +204,13 @@ def load_data(args, tasks):
     test_queries = pickle.load(open(os.path.join(args.data_path, "test-queries.pkl"), 'rb'))
     test_hard_answers = pickle.load(open(os.path.join(args.data_path, "test-hard-answers.pkl"), 'rb'))
     test_easy_answers = pickle.load(open(os.path.join(args.data_path, "test-easy-answers.pkl"), 'rb'))
-    word_embedding = pickle.load(open(args.word_embed_path, 'rb'))
-    word_embedding = torch.tensor(word_embedding).to(torch.float32)
-    if args.cuda:
-        word_embedding = word_embedding.cuda()
-    # pdb.set_trace()
+
+    word_embedding = None
+    if args.use_wb:
+        word_embedding = pickle.load(open(args.word_embed_path, 'rb'))
+        word_embedding = torch.tensor(word_embedding).to(torch.float32)
+        if args.cuda:
+            word_embedding = word_embedding.cuda()
 
     # remove tasks not in args.tasks
     for name in all_tasks:
@@ -368,6 +372,7 @@ def main(args):
         beta_mode=eval_tuple(args.beta_mode),
         test_batch_size=args.test_batch_size,
         query_name_dict=query_name_dict,
+        use_wb=args.use_wb,
         word_embedding=word_embedding
     )
 
