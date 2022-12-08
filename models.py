@@ -135,9 +135,7 @@ class KGReasoning(nn.Module):
         if use_wb:
             self.word_embedding = word_embedding
             self.word_embed_dim = word_embedding.shape[-1]
-            if self.geo == 'box':
-                pass
-            elif self.geo == 'vec':
+            if self.geo in ['box', 'vec']:
                 self.convert = nn.Sequential(
                     nn.Linear(self.hidden_dim + self.word_embed_dim, self.hidden_dim),
                     nn.ReLU(),
@@ -149,6 +147,8 @@ class KGReasoning(nn.Module):
                     nn.ReLU(),
                     nn.Linear(self.hidden_dim * 2, self.hidden_dim * 2)
                 )
+            else:
+                raise ValueError
 
         self.gamma = nn.Parameter(
             torch.Tensor([gamma]), 
@@ -214,13 +214,13 @@ class KGReasoning(nn.Module):
 
     def forward(self, positive_sample, negative_sample, subsampling_weight, batch_queries_dict, batch_idxs_dict):
         if self.geo == 'box':
-            return self.forward_box(positive_sample, negative_sample, subsampling_weight, batch_queries_dict, batch_idxs_dict)
+            return self.forward_box(positive_sample, negative_sample, subsampling_weight, batch_queries_dict, batch_idxs_dict, self.use_wb)
         elif self.geo == 'vec':
             return self.forward_vec(positive_sample, negative_sample, subsampling_weight, batch_queries_dict, batch_idxs_dict, self.use_wb)
         elif self.geo == 'beta':
             return self.forward_beta(positive_sample, negative_sample, subsampling_weight, batch_queries_dict, batch_idxs_dict, self.use_wb)
 
-    def embed_query_box(self, queries, query_structure, idx):
+    def embed_query_box(self, queries, query_structure, idx, use_wb):
         '''
         Iterative embed a batch of queries with same structure using Query2box
         queries: a flattened batch of queries
@@ -233,13 +233,17 @@ class KGReasoning(nn.Module):
         if all_relation_flag:
             if query_structure[0] == 'e':
                 embedding = torch.index_select(self.entity_embedding, dim=0, index=queries[:, idx])
+                if use_wb:
+                    embedding_word = torch.index_select(self.word_embedding, dim=0, index=queries[:, idx])
+                    new_embedding = torch.cat((embedding, embedding_word), -1)
+                    embedding = self.convert(new_embedding)
                 if self.use_cuda:
                     offset_embedding = torch.zeros_like(embedding).cuda()
                 else:
                     offset_embedding = torch.zeros_like(embedding)
                 idx += 1
             else:
-                embedding, offset_embedding, idx = self.embed_query_box(queries, query_structure[0], idx)
+                embedding, offset_embedding, idx = self.embed_query_box(queries, query_structure[0], idx, use_wb)
             for i in range(len(query_structure[-1])):
                 if query_structure[-1][i] == 'n':
                     assert False, "box cannot handle queries with negation"
@@ -254,7 +258,7 @@ class KGReasoning(nn.Module):
             offset_embedding_list = []
             # embedding the query
             for i in range(len(query_structure)):
-                embedding, offset_embedding, idx = self.embed_query_box(queries, query_structure[i], idx)
+                embedding, offset_embedding, idx = self.embed_query_box(queries, query_structure[i], idx, use_wb)
                 embedding_list.append(embedding)
                 offset_embedding_list.append(offset_embedding)
             embedding = self.center_net(torch.stack(embedding_list))
@@ -454,7 +458,7 @@ class KGReasoning(nn.Module):
         logit = self.gamma - torch.norm(distance_out, p=1, dim=-1) - self.cen * torch.norm(distance_in, p=1, dim=-1)
         return logit
 
-    def forward_box(self, positive_sample, negative_sample, subsampling_weight, batch_queries_dict, batch_idxs_dict):
+    def forward_box(self, positive_sample, negative_sample, subsampling_weight, batch_queries_dict, batch_idxs_dict, use_wb=False):
         all_center_embeddings, all_offset_embeddings, all_idxs = [], [], []
         all_union_center_embeddings, all_union_offset_embeddings, all_union_idxs = [], [], []
         for query_structure in batch_queries_dict:
@@ -463,14 +467,14 @@ class KGReasoning(nn.Module):
                     self.embed_query_box(self.transform_union_query(batch_queries_dict[query_structure], 
                                                                     query_structure), 
                                          self.transform_union_structure(query_structure), 
-                                         0)
+                                         0, use_wb)
                 all_union_center_embeddings.append(center_embedding)
                 all_union_offset_embeddings.append(offset_embedding)
                 all_union_idxs.extend(batch_idxs_dict[query_structure])
             else:
                 center_embedding, offset_embedding, _ = self.embed_query_box(batch_queries_dict[query_structure], 
                                                                              query_structure, 
-                                                                             0)
+                                                                             0, use_wb)
                 all_center_embeddings.append(center_embedding)
                 all_offset_embeddings.append(offset_embedding)
                 all_idxs.extend(batch_idxs_dict[query_structure])
