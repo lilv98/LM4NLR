@@ -15,7 +15,7 @@ Language Modeling for Neural Multi-hop Logical Reasoning over Knowledge Graphs
 ## Preprocessing
 
 - Generating More General Queries
-    > `TODO: Mark/Jingbo`
+    > `TODO: Mark/Jingbo`  Generate new queries and answers for 4p, 5p, 4i, 5i. 
 
 - Extracting Pretrained Entity Name Embeddings
     > `python extract_emb.py ./private_data/id2ent.pkl ./private_data/emb768.pkl`
