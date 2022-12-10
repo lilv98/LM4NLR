@@ -143,9 +143,9 @@ class KGReasoning(nn.Module):
                 )
             elif self.geo == 'beta':
                 self.convert = nn.Sequential(
-                    nn.Linear(self.hidden_dim * 2 + self.word_embed_dim, self.hidden_dim * 2),
+                    nn.Linear(self.hidden_dim * 2 + self.word_embed_dim, self.hidden_dim // 2),
                     nn.ReLU(),
-                    nn.Linear(self.hidden_dim * 2, self.hidden_dim * 2)
+                    nn.Linear(self.hidden_dim // 2, self.hidden_dim * 2)
                 )
             else:
                 raise ValueError
