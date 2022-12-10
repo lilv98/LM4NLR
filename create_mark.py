@@ -18,7 +18,7 @@ def parse_args():
     #parser.add_argument('--train_num', type = int, default = 0, help = 'how many train data to generate')
     #parser.add_argument('--validation_num', type=int, default=0, help='how many validation data to generate')
     parser.add_argument('--test_num', type=int, default=0, help='how many test data to generate')
-    parser.add_argument('--path', default='data/', help='path to data')
+    parser.add_argument('--path', default='./private_data/', help='path to data')
     parser.add_argument('--seed', type = int, default='6', help='randomness of the data')
     #parser.add_argument('--query_name', default=3 , help='Which one do u wanna generate, index of query structure')
     return parser.parse_args()
